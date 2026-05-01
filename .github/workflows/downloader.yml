@@ -1,0 +1,178 @@
+name: 📥 دانلودر حرفه‌ای فایل
+
+on:
+  # اجرا از طریق رابط کاربری (HTML)
+  repository_dispatch:
+    types: [download-request]
+  
+  # اجرا دستی از داخل گیت‌هاب
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: '🔗 لینک‌های دانلود (با فاصله جدا کنید)'
+        required: true
+        type: string
+      mode:
+        description: '📦 حالت خروجی'
+        required: false
+        type: choice
+        default: 'auto'
+        options:
+          - 'auto'
+          - 'zip-single'
+          - 'keep-original'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  download-and-process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 🔄 آماده‌سازی محیط
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 نصب ابزارهای مورد نیاز
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aria2 zip unzip pv
+          echo "✅ ابزارها نصب شدند"
+
+      - name: 🔗 دریافت لینک‌ها
+        id: get-urls
+        run: |
+          # دریافت لینک‌ها از event یا input
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            URLS="${{ github.event.client_payload.urls }}"
+            MODE="${{ github.event.client_payload.mode }}"
+          else
+            URLS="${{ github.event.inputs.urls }}"
+            MODE="${{ github.event.inputs.mode }}"
+          fi
+          
+          echo "urls=${URLS}" >> $GITHUB_OUTPUT
+          echo "mode=${MODE}" >> $GITHUB_OUTPUT
+          
+          echo "📋 لینک‌های دریافت شده:"
+          echo "$URLS" | tr ' ' '\n' | while read url; do
+            echo "  • $url"
+          done
+
+      - name: ⬇️ دانلود فایل‌ها با aria2
+        run: |
+          mkdir -p downloads temp_downloads
+          cd temp_downloads
+          
+          # دانلود همزمان با 4 اتصال
+          for URL in ${{ steps.get-urls.outputs.url }}; do
+            echo "🚀 در حال دانلود: $URL"
+            aria2c \
+              --max-connection-per-server=4 \
+              --split=4 \
+              --min-split-size=10M \
+              --max-concurrent-downloads=2 \
+              --continue=true \
+              --timeout=60 \
+              --retry-wait=5 \
+              --max-tries=10 \
+              --dir="." \
+              "$URL"
+          done
+          
+          cd ..
+          echo "✅ دانلود کامل شد"
+
+      - name: ✂️ پردازش و تقسیم فایل‌های بزرگ
+        run: |
+          LIMIT_MB=90
+          LIMIT_BYTES=$((LIMIT_MB * 1024 * 1024))
+          MODE="${{ steps.get-urls.outputs.mode }}"
+          
+          echo "📊 شروع پردازش فایل‌ها..."
+          echo "🔸 حد مجاز: ${LIMIT_MB}MB"
+          echo "🔸 حالت خروجی: ${MODE}"
+          
+          for FILE in temp_downloads/*; do
+            [ -f "$FILE" ] || continue
+            
+            FILENAME=$(basename "$FILE")
+            SIZE=$(stat -c%s "$FILE")
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            
+            echo "📄 فایل: $FILENAME - حجم: ${SIZE_MB}MB"
+            
+            if [ "$MODE" = "zip-single" ] || [ "$MODE" = "auto" ] && [ "$SIZE" -gt "$LIMIT_BYTES" ]; then
+              echo "  ⚠️ فایل بزرگ است (${SIZE_MB}MB > ${LIMIT_MB}MB)"
+              echo "  ✂️ در حال تقسیم به قطعات ${LIMIT_MB}MB..."
+              
+              # ایجاد پوشه مخصوص هر فایل
+              mkdir -p "downloads/${FILENAME}_parts"
+              
+              # تقسیم با split (سریعتر و سازگارتر)
+              split -b $LIMIT_BYTES -d "$FILE" "downloads/${FILENAME}_parts/part_" --additional-suffix=".part"
+              
+              # ایجاد فایل راهنما
+              cat > "downloads/${FILENAME}_parts/README.txt" << EOF
+🔧 راهنمای ترکیب قطعات - ${FILENAME}
+
+این فایل به ${LIMIT_MB}MB قطعه تقسیم شده است.
+
+برای ترکیب مجدد در ویندوز:
+    copy /b part_*.part ${FILENAME}
+
+در لینوکس/مک:
+    cat part_*.part > ${FILENAME}
+
+فایل اصلی: ${FILENAME}
+حجم اصلی: ${SIZE_MB}MB
+تعداد قطعات: $(ls downloads/${FILENAME}_parts/part_*.part | wc -l) قطعه
+تاریخ: $(date '+%Y-%m-%d %H:%M:%S')
+EOF
+              
+              echo "  ✅ تقسیم شد: $(ls downloads/${FILENAME}_parts/part_*.part | wc -l) قطعه"
+            else
+              echo "  ✅ فایل در حد مجاز، کپی می‌شود"
+              cp "$FILE" "downloads/$FILENAME"
+            fi
+          done
+
+      - name: 🗜️ ایجاد آرشیو نهایی
+        run: |
+          cd downloads
+          
+          # ایجاد آرشیو زمان‌دار
+          ARCHIVE_NAME="دانلود_$(date +%Y%m%d_%H%M%S).zip"
+          
+          # زیپ کردن همه چیز با حداکثر فشرده‌سازی
+          zip -r -9 "../$ARCHIVE_NAME" . -x "*.DS_Store" "*.tmp"
+          
+          cd ..
+          
+          # محاسبه حجم نهایی
+          FINAL_SIZE=$(du -h "$ARCHIVE_NAME" | cut -f1)
+          echo "📦 آرشیو نهایی: $ARCHIVE_NAME"
+          echo "📊 حجم نهایی: $FINAL_SIZE"
+          echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+
+      - name: 📤 آپلود به عنوان Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: دانلود_نهایی_$(date +%Y%m%d_%H%M%S)
+          path: ${{ steps.archive.outputs.archive_name }}
+          retention-days: 7
+          compression-level: 9
+
+      - name: 🧹 پاکسازی فایل‌های موقت
+        run: |
+          rm -rf temp_downloads downloads
+          echo "🧹 پاکسازی انجام شد"
+
+      - name: ✅ گزارش نهایی
+        run: |
+          echo "🎉 دانلود با موفقیت کامل شد!"
+          echo "📥 فایل نهایی در بخش Artifacts موجود است"
