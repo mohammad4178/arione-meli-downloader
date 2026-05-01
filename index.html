@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>دانلودر حرفه‌ای گیت‌هاب | GitHub Downloader</title>
+    <title>دانلودر حرفه‌ای گیت‌هاب | Fluent Design</title>
     <style>
+        /* Microsoft Fluent Design System - Acrylic Material */
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;500;600;700&display=swap');
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,191 +15,168 @@
         }
         
         body {
-            font-family: 'Segoe UI', 'Tahoma', 'システム', system-ui, -apple-system, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', 'Segoe UI Variable', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDQwIDQwIj48cGF0aCBmaWxsPSIjZjBmMGYwIiBmaWxsLW9wYWNpdHk9IjAuMSIgZD0iTTAgMGg0MHY0MEgweiIvPjwvc3ZnPg==');
+            background-attachment: fixed;
             min-height: 100vh;
-            padding: 20px;
+            padding: 2rem;
         }
         
-        /* Microsoft Fluent Design */
+        /* Acrylic backdrop effect */
+        .acrylic-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 32px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.5);
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
-            overflow: hidden;
-            animation: slideUp 0.5s ease-out;
         }
         
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* هدر با سبک Fluent */
+        /* Header with Fluent gradient */
         .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            padding: 40px;
+            padding: 2.5rem;
             text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 4s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.8; }
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         }
         
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            position: relative;
+            font-size: 2.2rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4a 50%, #1a1a2e 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 15px;
+            gap: 12px;
         }
         
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-            position: relative;
+        .header .badge {
+            background: rgba(0, 120, 212, 0.15);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #0078d4;
+            display: inline-block;
         }
         
         .content {
-            padding: 40px;
+            padding: 2.5rem;
         }
         
-        /* فرم و ورودی‌ها */
-        .form-group {
-            margin-bottom: 30px;
+        /* Fluent Input Fields */
+        .fluent-input-group {
+            margin-bottom: 1.75rem;
         }
         
-        label {
+        .fluent-label {
             display: block;
-            margin-bottom: 12px;
-            font-weight: 600;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.85rem;
             color: #1a1a2e;
-            font-size: 0.95em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: -0.2px;
         }
         
-        textarea, select, input {
+        .fluent-label i {
+            margin-left: 6px;
+        }
+        
+        .fluent-textarea, .fluent-input, .fluent-select {
             width: 100%;
             padding: 14px 16px;
-            border: 2px solid #e0e0e0;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
             border-radius: 12px;
             font-size: 14px;
             font-family: 'Segoe UI', monospace;
-            transition: all 0.3s ease;
-            background: white;
+            transition: all 0.2s ease;
             resize: vertical;
         }
         
-        textarea:focus, select:focus, input:focus {
+        .fluent-textarea:focus, .fluent-input:focus, .fluent-select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #0078d4;
+            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+            background: white;
         }
         
-        textarea {
-            min-height: 150px;
-            font-family: 'Courier New', monospace;
+        .fluent-textarea {
+            min-height: 120px;
+            font-family: 'Consolas', monospace;
         }
         
-        /* دکمه‌ها */
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-        }
-        
-        .btn {
-            flex: 1;
-            padding: 14px 28px;
+        /* Fluent Buttons */
+        .fluent-btn {
+            padding: 12px 28px;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.25s ease;
+            font-size: 14px;
+            font-weight: 500;
             font-family: inherit;
-            position: relative;
-            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
         }
         
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .fluent-btn-primary {
+            background: #0078d4;
             color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 2px 4px rgba(0, 120, 212, 0.2);
         }
         
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-        }
-        
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-        
-        .btn-secondary:hover {
-            background: #e0e0e0;
+        .fluent-btn-primary:hover {
+            background: #106ebe;
             transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
         }
         
-        .btn:active {
-            transform: translateY(0);
+        .fluent-btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a2e;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
         
-        /* وضعیت و پیشرفت */
-        .status {
-            margin-top: 30px;
-            padding: 20px;
-            border-radius: 16px;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
+        .fluent-btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        /* Status Card */
+        .status-card {
+            margin-top: 24px;
+            padding: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .status-card.hidden {
             display: none;
         }
         
-        .status.show {
-            display: block;
-            animation: fadeIn 0.5s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
         .status-header {
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 15px;
         }
         
         .status-icon {
@@ -205,284 +185,295 @@
             border-radius: 50%;
         }
         
-        .status-icon.success {
-            background: #10b981;
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-        }
-        
-        .status-icon.error {
-            background: #ef4444;
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
-        }
-        
         .status-icon.loading {
-            background: #f59e0b;
+            background: #ffb900;
             animation: pulse 1s ease-in-out infinite;
         }
         
-        .status-message {
-            color: #1a1a2e;
-            font-weight: 500;
+        .status-icon.success {
+            background: #13a10e;
         }
         
-        .progress-bar {
-            margin-top: 15px;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 10px;
+        .status-icon.error {
+            background: #d13438;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+        
+        .status-body {
+            padding: 20px;
+        }
+        
+        .progress-container {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 20px;
+            height: 6px;
             overflow: hidden;
+            margin-top: 12px;
         }
         
         .progress-fill {
+            background: linear-gradient(90deg, #0078d4, #00b7c3);
             height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
             width: 0%;
             transition: width 0.3s ease;
-            border-radius: 10px;
+            border-radius: 20px;
         }
         
-        /* Info boxes */
-        .info-box {
-            background: #e7f3ff;
-            border-right: 4px solid #2196f3;
-            padding: 15px;
-            border-radius: 12px;
+        /* Result card */
+        .result-card {
             margin-top: 20px;
+            background: linear-gradient(135deg, rgba(0, 120, 212, 0.08), rgba(0, 120, 212, 0.02));
+            border: 1px solid rgba(0, 120, 212, 0.2);
         }
         
-        .info-box h4 {
-            color: #1976d2;
-            margin-bottom: 10px;
+        .result-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #0078d4;
+            font-weight: 500;
+            transition: all 0.2s;
         }
         
-        .info-box ul {
-            margin-right: 20px;
-            color: #555;
+        .result-link:hover {
+            background: #f0f6ff;
+            transform: translateX(-5px);
         }
         
-        .info-box li {
-            margin: 8px 0;
+        /* Info box */
+        .info-box {
+            margin-top: 24px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .info-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1a1a2e;
+        }
+        
+        .info-text {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.6;
         }
         
         /* Responsive */
         @media (max-width: 768px) {
-            .container {
-                margin: 10px;
-            }
-            
-            .content {
-                padding: 25px;
-            }
-            
-            .header h1 {
-                font-size: 1.8em;
-            }
-            
-            .button-group {
-                flex-direction: column;
-            }
-            
-            .btn {
-                padding: 12px;
-            }
-        }
-        
-        /* اسکرول بار سفارشی */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            body { padding: 1rem; }
+            .header { padding: 1.5rem; }
+            .content { padding: 1.5rem; }
+            .header h1 { font-size: 1.5rem; }
+            .button-group { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>
-                <span>📥</span>
-                دانلودر حرفه‌ای گیت‌هاب
-                <span>🚀</span>
-            </h1>
-            <p>ابزار قدرتمند دانلود و ذخیره‌سازی مستقیم در مخزن گیت‌هاب | طراحی شده با Fluent Design</p>
-        </div>
-        
-        <div class="content">
-            <form id="downloadForm">
-                <div class="form-group">
-                    <label>🔗 لینک‌های مستقیم فایل‌ها</label>
-                    <textarea 
-                        id="urls" 
-                        placeholder="https://example.com/file1.zip&#10;https://example.com/file2.mp4&#10;https://example.com/file3.pdf"
-                        required
-                    ></textarea>
-                    <small style="color: #666; display: block; margin-top: 8px;">
-                        💡 می‌توانید چندین لینک را در هر خط وارد کنید (با فاصله یا خط جدید)
-                    </small>
+        <div class="acrylic-card">
+            <div class="header">
+                <h1>
+                    <span>📥</span>
+                    GitHub Downloader Pro
+                    <span>⚡</span>
+                </h1>
+                <div class="badge">Microsoft Fluent Design</div>
+                <p style="margin-top: 12px; color: #666; font-size: 0.9rem;">دانلود خودکار فایل‌ها و ذخیره در مخزن گیت‌هاب</p>
+            </div>
+            
+            <div class="content">
+                <div class="fluent-input-group">
+                    <label class="fluent-label">
+                        <i>🔗</i> لینک‌های مستقیم فایل‌ها
+                    </label>
+                    <textarea id="urls" class="fluent-textarea" placeholder="https://example.com/file1.zip&#10;https://example.com/file2.mp4"></textarea>
+                    <small style="color: #666; margin-top: 6px; display: block;">🔹 هر لینک در یک خط - 🔹 با کاما یا فاصله هم می‌توانید جدا کنید</small>
                 </div>
                 
-                <div class="form-group">
-                    <label>⚙️ تنظیمات پیشرفته</label>
-                    <select id="mode">
+                <div class="fluent-input-group">
+                    <label class="fluent-label">
+                        <i>📁</i> نام مخزن گیت‌هاب
+                    </label>
+                    <input type="text" id="repo" class="fluent-input" placeholder="username/repository-name">
+                </div>
+                
+                <div class="fluent-input-group">
+                    <label class="fluent-label">
+                        <i>⚙️</i> حالت دانلود
+                    </label>
+                    <select id="mode" class="fluent-select">
                         <option value="auto">🤖 خودکار (تقسیم فایل‌های بالای 90MB)</option>
-                        <option value="zip-single">📦 یک فایل ZIP نهایی (تقسیم خودکار)</option>
-                        <option value="keep-original">💾 حفظ ساختار اصلی (بدون تقسیم)</option>
+                        <option value="zip-single">📦 یک فایل ZIP نهایی</option>
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label>🏷️ اطلاعات گیت‌هاب</label>
-                    <input 
-                        type="text" 
-                        id="repo" 
-                        placeholder="username/repository-name"
-                        value=""
-                    >
-                    <small style="color: #666; display: block; margin-top: 8px;">
-                        ⚠️ مخزن باید از قبل ایجاد شده باشد و اکشن‌ها در آن فعال باشد
-                    </small>
+                <div class="button-group">
+                    <button id="downloadBtn" class="fluent-btn fluent-btn-primary">
+                        <span>🚀</span> شروع دانلود
+                    </button>
+                    <button id="clearBtn" class="fluent-btn fluent-btn-secondary">
+                        <span>🗑️</span> پاک کردن
+                    </button>
                 </div>
                 
-                <div class="button-group">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        🚀 شروع دانلود
-                    </button>
-                    <button type="button" class="btn btn-secondary" id="clearBtn">
-                        🗑️ پاک کردن فرم
-                    </button>
+                <!-- Status Card -->
+                <div id="statusCard" class="status-card hidden">
+                    <div class="status-header">
+                        <div id="statusIcon" class="status-icon"></div>
+                        <span id="statusTitle" style="font-weight: 500;">وضعیت</span>
+                    </div>
+                    <div class="status-body">
+                        <div id="statusMessage" style="color: #555; margin-bottom: 12px;"></div>
+                        <div id="progressContainer" class="progress-container">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="statusDetails" style="margin-top: 12px; font-size: 0.8rem; color: #888;"></div>
+                    </div>
                 </div>
-            </form>
-            
-            <div id="status" class="status">
-                <div class="status-header">
-                    <div class="status-icon" id="statusIcon"></div>
-                    <div class="status-message" id="statusMessage"></div>
+                
+                <!-- Result Card -->
+                <div id="resultCard" class="status-card hidden result-card">
+                    <div class="status-header">
+                        <div class="status-icon success"></div>
+                        <span style="font-weight: 500;">✅ دانلود با موفقیت انجام شد!</span>
+                    </div>
+                    <div id="resultBody" class="status-body"></div>
                 </div>
-                <div class="progress-bar" id="progressBar">
-                    <div class="progress-fill" id="progressFill"></div>
+                
+                <!-- Info Box -->
+                <div class="info-box">
+                    <div class="info-title">ℹ️ راهنمای سریع</div>
+                    <div class="info-text">
+                        <strong>مرحله 1:</strong> لینک‌های فایل‌های خود را وارد کنید<br>
+                        <strong>مرحله 2:</strong> نام مخزن گیت‌هاب خود را وارد کنید (مثال: username/repo)<br>
+                        <strong>مرحله 3:</strong> روی "شروع دانلود" کلیک کنید<br>
+                        <strong>مرحله 4:</strong> پس از اتمام، لینک دانلود مستقیم فایل نهایی به شما داده می‌شود<br><br>
+                        <strong>📦 نکته:</strong> فایل‌های بالای 90MB به صورت خودکار به قطعات تقسیم و در یک ZIP فشرده می‌شوند.
+                    </div>
                 </div>
-                <div id="statusDetails" style="margin-top: 10px; font-size: 0.9em; color: #666;"></div>
-            </div>
-            
-            <div class="info-box">
-                <h4>ℹ️ راهنمای استفاده</h4>
-                <ul>
-                    <li><strong>مرحله 1:</strong> لینک‌های مستقیم فایل‌های خود را وارد کنید</li>
-                    <li><strong>مرحله 2:</strong> نام مخزن گیت‌هاب خود را وارد کنید (مثال: username/repo)</li>
-                    <li><strong>مرحله 3:</strong> روی "شروع دانلود" کلیک کنید</li>
-                    <li><strong>مرحله 4:</strong> منتظر بمانید تا عملیات کامل شود</li>
-                    <li><strong>مرحله 5:</strong> فایل نهایی را از بخش Actions گیت‌هاب دانلود کنید</li>
-                </ul>
-                <br>
-                <h4>📦 ویژگی‌های خاص</h4>
-                <ul>
-                    <li>✅ دانلود همزمان چندین فایل با <strong>aria2</strong></li>
-                    <li>✅ تقسیم خودکار فایل‌های بزرگ به قطعات <strong>90 مگابایتی</strong></li>
-                    <li>✅ ایجاد آرشیو <strong>ZIP نهایی</strong> از همه فایل‌ها</li>
-                    <li>✅ رابط کاربری <strong>Microsoft Fluent</strong> زیبا و روان</li>
-                    <li>✅ گزارش پیشرفت و وضعیت به‌روز</li>
-                </ul>
             </div>
         </div>
     </div>
 
     <script>
-        class GitHubDownloader {
+        class FluentGitHubDownloader {
             constructor() {
-                this.apiBase = 'https://api.github.com';
-                this.initEventListeners();
+                this.token = null;
+                this.pollingInterval = null;
+                this.init();
             }
             
-            initEventListeners() {
-                document.getElementById('downloadForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.startDownload();
-                });
-                
-                document.getElementById('clearBtn').addEventListener('click', () => {
-                    document.getElementById('urls').value = '';
-                    document.getElementById('repo').value = '';
-                    document.getElementById('mode').value = 'auto';
-                });
+            init() {
+                this.loadToken();
+                this.bindEvents();
             }
             
-            updateStatus(type, message, details = '', progress = 0) {
-                const statusDiv = document.getElementById('status');
+            loadToken() {
+                this.token = localStorage.getItem('github_token');
+                if (!this.token) {
+                    setTimeout(() => this.askForToken(), 500);
+                }
+            }
+            
+            askForToken() {
+                const token = prompt(
+                    '🔐 توکن گیت‌هاب خود را وارد کنید:\n\n' +
+                    'چگونه توکن بسازم؟\n' +
+                    '1. به GitHub → Settings → Developer settings → Personal access tokens بروید\n' +
+                    '2. روی "Generate new token (classic)" کلیک کنید\n' +
+                    '3. دسترسی‌های repo و workflow را تیک بزنید\n' +
+                    '4. توکن ساخته شده را کپی و اینجا جایگذاری کنید'
+                );
+                if (token && token.startsWith('github_pat_') || token.startsWith('ghp_')) {
+                    this.token = token;
+                    localStorage.setItem('github_token', token);
+                    this.showToast('✅ توکن ذخیره شد', 'success');
+                } else if (token) {
+                    alert('❌ توکن نامعتبر! لطفاً توکن معتبر وارد کنید');
+                    this.askForToken();
+                }
+            }
+            
+            bindEvents() {
+                document.getElementById('downloadBtn').addEventListener('click', () => this.startDownload());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearForm());
+            }
+            
+            clearForm() {
+                document.getElementById('urls').value = '';
+                document.getElementById('repo').value = '';
+                this.hideStatus();
+                this.hideResult();
+            }
+            
+            showStatus(title, message, progress = 0) {
+                const card = document.getElementById('statusCard');
                 const icon = document.getElementById('statusIcon');
-                const msgDiv = document.getElementById('statusMessage');
-                const detailsDiv = document.getElementById('statusDetails');
-                const progressFill = document.getElementById('progressFill');
+                const titleEl = document.getElementById('statusTitle');
+                const msgEl = document.getElementById('statusMessage');
+                const fillEl = document.getElementById('progressFill');
                 
-                statusDiv.classList.add('show');
-                
-                // تنظیم آیکون
-                icon.className = 'status-icon';
-                if (type === 'loading') icon.classList.add('loading');
-                else if (type === 'success') icon.classList.add('success');
-                else if (type === 'error') icon.classList.add('error');
-                
-                msgDiv.textContent = message;
-                detailsDiv.textContent = details;
-                progressFill.style.width = `${progress}%`;
-                
-                if (type === 'success') {
-                    setTimeout(() => {
-                        statusDiv.classList.remove('show');
-                    }, 5000);
-                }
+                card.classList.remove('hidden');
+                icon.className = 'status-icon loading';
+                titleEl.textContent = title;
+                msgEl.textContent = message;
+                fillEl.style.width = `${progress}%`;
             }
             
-            async dispatchWorkflow(repo, urls, mode) {
-                const [owner, repoName] = repo.split('/');
-                const url = `${this.apiBase}/repos/${owner}/${repoName}/dispatches`;
+            updateProgress(message, progress) {
+                const msgEl = document.getElementById('statusMessage');
+                const fillEl = document.getElementById('progressFill');
+                const detailsEl = document.getElementById('statusDetails');
                 
-                const payload = {
-                    event_type: 'download-request',
-                    client_payload: {
-                        urls: urls.join(' '),
-                        mode: mode
-                    }
-                };
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `token ${this.getToken()}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`خطا در ارسال درخواست: ${response.status}`);
-                }
-                
-                return true;
+                if (msgEl) msgEl.textContent = message;
+                if (fillEl) fillEl.style.width = `${progress}%`;
+                if (detailsEl) detailsEl.textContent = new Date().toLocaleTimeString('fa-IR');
             }
             
-            getToken() {
-                // توکن گیت‌هاب - می‌توانید در localStorage ذخیره کنید
-                let token = localStorage.getItem('github_token');
-                if (!token) {
-                    token = prompt('لطفاً توکن دسترسی گیت‌هاب خود را وارد کنید:\n(از Settings > Developer settings > Personal access tokens بسازید)');
-                    if (token) {
-                        localStorage.setItem('github_token', token);
-                    }
-                }
-                return token;
+            hideStatus() {
+                document.getElementById('statusCard').classList.add('hidden');
+                if (this.pollingInterval) clearInterval(this.pollingInterval);
+            }
+            
+            showResult(downloadUrl, runId) {
+                const card = document.getElementById('resultCard');
+                const body = document.getElementById('resultBody');
+                
+                body.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background: white; border-radius: 12px; padding: 16px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">📥 فایل شما آماده دانلود است!</div>
+                            <a href="${downloadUrl}" target="_blank" class="result-link" style="display: flex; justify-content: space-between;">
+                                <span>🔗 دانلود فایل نهایی</span>
+                                <span>⬇️</span>
+                            </a>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #888; text-align: center;">
+                            شناسه: ${runId}<br>
+                            فایل به مدت 7 روز در گیت‌هاب نگهداری می‌شود
+                        </div>
+                    </div>
+                `;
+                
+                card.classList.remove('hidden');
+                
+                // Scroll to result
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            hideResult() {
+                document.getElementById('resultCard').classList.add('hidden');
             }
             
             async startDownload() {
@@ -490,63 +481,141 @@
                 const repo = document.getElementById('repo').value;
                 const mode = document.getElementById('mode').value;
                 
-                // اعتبارسنجی
                 if (!urlsText.trim()) {
-                    this.updateStatus('error', '❌ خطا', 'لطفاً حداقل یک لینک وارد کنید');
+                    alert('❌ لطفاً حداقل یک لینک وارد کنید');
                     return;
                 }
                 
                 if (!repo.trim()) {
-                    this.updateStatus('error', '❌ خطا', 'لطفاً نام مخزن گیت‌هاب را وارد کنید');
+                    alert('❌ لطفاً نام مخزن گیت‌هاب را وارد کنید (مثال: username/repo)');
+                    return;
+                }
+                
+                if (!this.token) {
+                    this.askForToken();
                     return;
                 }
                 
                 // پردازش لینک‌ها
-                const urls = urlsText.split(/\s+/).filter(url => url.trim() && url.startsWith('http'));
+                let urls = urlsText.split(/\n/);
+                urls = urls.flatMap(u => u.split(/[ ,]+/));
+                urls = urls.filter(u => u.trim() && u.startsWith('http'));
                 
                 if (urls.length === 0) {
-                    this.updateStatus('error', '❌ خطا', 'لطفاً لینک‌های معتبر وارد کنید (باید با http:// یا https:// شروع شوند)');
+                    alert('❌ لینک معتبری یافت نشد (لینک باید با http:// یا https:// شروع شود)');
                     return;
                 }
                 
-                this.updateStatus('loading', '🔄 در حال ارسال درخواست...', `تعداد فایل‌ها: ${urls.length}`, 25);
+                this.showStatus('🔄 در حال ارسال درخواست...', 'در حال اتصال به گیت‌هاب', 10);
                 
                 try {
-                    // ارسال درخواست به گیت‌هاب
-                    await this.dispatchWorkflow(repo, urls, mode);
+                    // Trigger workflow
+                    const workflowUrl = `https://api.github.com/repos/${repo}/actions/workflows/downloader.yml/dispatches`;
                     
-                    this.updateStatus('success', '✅ درخواست با موفقیت ارسال شد!', 
-                        `لینک‌های ${urls.length} فایل برای دانلود ثبت شد.\n\n` +
-                        `🔍 برای مشاهده پیشرفت:\n` +
-                        `1. به مخزن ${repo} در گیت‌هاب بروید\n` +
-                        `2. روی تب Actions کلیک کنید\n` +
-                        `3. آخرین workflow در حال اجرا را مشاهده کنید\n` +
-                        `4. پس از اتمام، فایل نهایی را از بخش Artifacts دانلود کنید`,
-                        100);
+                    const payload = {
+                        ref: 'main',
+                        inputs: {
+                            urls: urls.join(' '),
+                            mode: mode
+                        }
+                    };
                     
-                    // باز کردن لینک گیت‌هاب در تب جدید
-                    setTimeout(() => {
-                        window.open(`https://github.com/${repo}/actions`, '_blank');
-                    }, 2000);
+                    const response = await fetch(workflowUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok && response.status !== 204) {
+                        const error = await response.text();
+                        throw new Error(`خطای ${response.status}: ${error}`);
+                    }
+                    
+                    this.updateProgress('✅ درخواست ارسال شد! منتظر شروع پردازش...', 30);
+                    
+                    // منتظر ماندن و پیدا کردن run
+                    await this.waitForRun(repo, urls);
                     
                 } catch (error) {
-                    this.updateStatus('error', '❌ خطا در ارسال درخواست', error.message, 0);
-                    console.error('Error:', error);
+                    console.error(error);
+                    this.showStatus('❌ خطا', error.message, 0);
+                    setTimeout(() => this.hideStatus(), 5000);
                 }
+            }
+            
+            async waitForRun(repo, urls) {
+                this.updateProgress('🔄 در حال بررسی وضعیت...', 50);
+                
+                let attempts = 0;
+                const maxAttempts = 30; // 30 * 10 seconds = 5 minutes
+                
+                const checkInterval = setInterval(async () => {
+                    attempts++;
+                    
+                    try {
+                        const runsUrl = `https://api.github.com/repos/${repo}/actions/runs?per_page=5`;
+                        const response = await fetch(runsUrl, {
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        
+                        if (!response.ok) throw new Error('خطا در دریافت وضعیت');
+                        
+                        const data = await response.json();
+                        const latestRun = data.workflow_runs?.[0];
+                        
+                        if (latestRun && latestRun.status === 'completed') {
+                            clearInterval(checkInterval);
+                            
+                            if (latestRun.conclusion === 'success') {
+                                this.updateProgress('✅ دانلود کامل شد! در حال دریافت لینک...', 90);
+                                
+                                // دریافت لینک Artifact
+                                const artifactUrl = `https://api.github.com/repos/${repo}/actions/runs/${latestRun.id}/artifacts`;
+                                const artifactRes = await fetch(artifactUrl, {
+                                    headers: { 'Authorization': `Bearer ${this.token}` }
+                                });
+                                const artifactData = await artifactRes.json();
+                                
+                                if (artifactData.artifacts && artifactData.artifacts.length > 0) {
+                                    const downloadUrl = artifactData.artifacts[0].archive_download_url;
+                                    this.updateProgress('🎉 موفقیت آمیز!', 100);
+                                    this.hideStatus();
+                                    this.showResult(downloadUrl, latestRun.id);
+                                } else {
+                                    const runPageUrl = `https://github.com/${repo}/actions/runs/${latestRun.id}`;
+                                    this.showResult(runPageUrl, latestRun.id);
+                                }
+                            } else {
+                                this.showStatus('❌ خطا در دانلود', `وضعیت: ${latestRun.conclusion}`, 0);
+                                setTimeout(() => this.hideStatus(), 5000);
+                            }
+                        } else if (latestRun && latestRun.status === 'in_progress') {
+                            this.updateProgress(`⏳ در حال دانلود... (تلاش ${attempts}/${maxAttempts})`, 50 + (attempts * 1.5));
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            this.showStatus('⏰ زمان انتظار تمام شد', 'لطفاً بعداً وضعیت را در بخش Actions گیت‌هاب بررسی کنید', 0);
+                        }
+                        
+                    } catch (error) {
+                        console.error('Polling error:', error);
+                    }
+                }, 10000); // هر 10 ثانیه چک کن
+                
+                this.pollingInterval = checkInterval;
+            }
+            
+            showToast(message, type) {
+                // می‌توانید یک toast ساده بسازید
+                console.log(message);
             }
         }
         
-        // راه‌اندازی برنامه
-        const downloader = new GitHubDownloader();
-        
-        // بررسی وجود توکن در localStorage
-        if (!localStorage.getItem('github_token')) {
-            setTimeout(() => {
-                if (confirm('برای استفاده از این ابزار نیاز به توکن گیت‌هاب دارید.\nآیا می‌خواهید راهنمای ساخت توکن را ببینید؟')) {
-                    window.open('https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens', '_blank');
-                }
-            }, 1000);
-        }
+        // راه‌اندازی
+        const app = new FluentGitHubDownloader();
     </script>
 </body>
 </html>
