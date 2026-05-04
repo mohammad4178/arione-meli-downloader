@@ -7,235 +7,204 @@ on:
         description: 'لینک مستقیم فایل'
         required: true
         type: string
-      output_name:
-        description: 'نام فایل خروجی'
+      file_name:
+        description: 'نام فایل خروجی (اختیاری)'
         required: false
-        default: 'downloaded-file'
         type: string
+        default: ''
+      split_enabled:
+        description: 'تقسیم فایل‌های بزرگ (true/false)'
+        required: false
+        type: string
+        default: 'true'
 
-# Cancel any in-progress runs of the same workflow
-concurrency:
-  group: download-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-  download-and-upload:
+  download-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      # ───────── مرحله ۱: چک‌اوت مخزن ─────────
-      - name: Checkout repository
+      - name: 📥 Checkout مخزن
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      # ───────── مرحله ۲: نصب ابزارها ─────────
-      - name: Install dependencies
+      - name: 🧹 پاکسازی فایل‌های قدیمی (بیش از 2 روز)
+        run: |
+          echo "=== پاکسازی فایل‌های قدیمی‌تر از 2 روز ==="
+          if [ -d "download-temp" ]; then
+            # Find files older than 2 days
+            OLD_FILES=$(find download-temp -type f -mtime +2 2>/dev/null || true)
+            if [ -n "$OLD_FILES" ]; then
+              echo "فایل‌های قدیمی پیدا شد:"
+              echo "$OLD_FILES"
+              find download-temp -type f -mtime +2 -delete 2>/dev/null || true
+              # Remove empty directories
+              find download-temp -type d -empty -delete 2>/dev/null || true
+              echo "فایل‌های قدیمی حذف شدند."
+            else
+              echo "فایل قدیمی‌ای یافت نشد."
+            fi
+          else
+            echo "پوشه download-temp وجود ندارد. ایجاد می‌شود."
+          fi
+          mkdir -p download-temp
+
+      - name: 🔧 نصب aria2
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2 zip
 
-      # ───────── مرحله ۳: ساخت پوشه و دانلود فایل ─────────
-      - name: Download file
+      - name: 📥 دانلود فایل
         run: |
-          mkdir -p download-temp
-          cd download-temp
+          FILE_URL="${{ github.event.inputs.file_url }}"
+          CUSTOM_NAME="${{ github.event.inputs.file_name }}"
 
-          echo "🔗 لینک: ${{ inputs.file_url }}"
-          echo "📁 نام خروجی: ${{ inputs.output_name }}"
+          echo "=== شروع دانلود ==="
+          echo "لینک: $FILE_URL"
 
-          # Download with aria2 (fast, multi-connection)
+          # Determine output filename
+          if [ -n "$CUSTOM_NAME" ]; then
+            OUTPUT_NAME="$CUSTOM_NAME"
+          else
+            # Extract filename from URL
+            OUTPUT_NAME=$(basename "$FILE_URL" | sed 's/\?.*//' | sed 's/#.*//')
+            # If empty or just /, use default
+            if [ -z "$OUTPUT_NAME" ] || [ "$OUTPUT_NAME" = "/" ]; then
+              OUTPUT_NAME="downloaded_file"
+            fi
+          fi
+
+          echo "نام فایل خروجی: $OUTPUT_NAME"
+          echo "OUTPUT_NAME=$OUTPUT_NAME" >> $GITHUB_ENV
+
+          # Download with aria2c
           aria2c \
             --max-connection-per-server=16 \
             --split=16 \
             --min-split-size=1M \
             --max-tries=5 \
             --retry-wait=3 \
-            --timeout=120 \
-            --file-allocation=none \
+            --continue=true \
+            --auto-file-renaming=false \
+            --allow-overwrite=true \
             --console-log-level=notice \
             --summary-interval=10 \
-            --out="${{ inputs.output_name }}" \
-            "${{ inputs.file_url }}" || {
-              echo "❌ aria2 failed, trying wget..."
-              wget --no-check-certificate \
-                   --tries=3 \
-                   --timeout=120 \
-                   -O "${{ inputs.output_name }}" \
-                   "${{ inputs.file_url }}"
-            }
+            --dir="./download-temp" \
+            --out="$OUTPUT_NAME" \
+            "$FILE_URL"
 
-          # Show file info
-          echo ""
-          echo "📊 اطلاعات فایل دانلود شده:"
-          ls -lh
-          FILE_SIZE=$(stat -c%s "${{ inputs.output_name }}" 2>/dev/null || echo "0")
-          echo "📏 حجم: $FILE_SIZE bytes"
-          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
-
-      # ───────── مرحله ۴: تقسیم فایل بزرگ ─────────
-      - name: Split file if needed
-        run: |
-          cd download-temp
-          FILE="${{ inputs.output_name }}"
-          FILE_SIZE=${{ env.FILE_SIZE }}
-          MAX_SIZE=94371840  # 90MB in bytes
-
-          echo "📏 حجم فایل: $FILE_SIZE bytes"
-          echo "📏 حداکثر مجاز: $MAX_SIZE bytes"
-
-          if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
-            echo "📦 فایل بزرگتر از 90MB است. در حال تقسیم..."
-            
-            # Split into 90MB chunks
-            split -b 90M -d --additional-suffix=.part "$FILE" "${FILE}_"
-            
-            # Remove original to save space
-            rm "$FILE"
-            
-            echo "✅ تقسیم انجام شد:"
-            ls -lh *.part
-            
-            # Create a reassembly script
-            cat > reassemble.sh << 'SCRIPT'
-          #!/bin/bash
-          # Script to reassemble split files
-          OUTPUT_FILE="${1:-reassembled_file}"
-          echo "🔧 Reassembling parts into: $OUTPUT_FILE"
-          cat *.part > "$OUTPUT_FILE"
-          echo "✅ Done! File: $OUTPUT_FILE ($(stat -c%s "$OUTPUT_FILE") bytes)"
-          SCRIPT
-            chmod +x reassemble.sh
-            
-            # Create a reassembly batch file for Windows
-            cat > reassemble.bat << 'BATCH'
-          @echo off
-          echo Reassembling parts...
-          copy /b *.part reassembled_file
-          echo Done!
-          pause
-          BATCH
-            
-            echo "IS_SPLIT=true" >> $GITHUB_ENV
-          else
-            echo "✅ فایل نیازی به تقسیم ندارد."
-            echo "IS_SPLIT=false" >> $GITHUB_ENV
-          fi
-
-      # ───────── مرحله ۵: ساخت فایل زیپ ─────────
-      - name: Create zip archive
-        run: |
-          cd download-temp
-          OUTPUT_NAME="${{ inputs.output_name }}"
-
-          if [ "${{ env.IS_SPLIT }}" = "true" ]; then
-            echo "📦 زیپ کردن قطعات..."
-            zip -0 "../${OUTPUT_NAME}_archive.zip" *.part reassemble.sh reassemble.bat
-          else
-            echo "📦 زیپ کردن فایل..."
-            zip -0 "../${OUTPUT_NAME}_archive.zip" "$OUTPUT_NAME"
-          fi
-
-          cd ..
-          ls -lh "${OUTPUT_NAME}_archive.zip"
-          
-          ZIP_SIZE=$(stat -c%s "${OUTPUT_NAME}_archive.zip" 2>/dev/null || echo "0")
-          echo "ZIP_SIZE=$ZIP_SIZE" >> $GITHUB_ENV
-          echo "📊 حجم زیپ: $ZIP_SIZE bytes"
-
-      # ───────── مرحله ۶: بررسی حجم و تقسیم زیپ ─────────
-      - name: Handle large zip
-        run: |
-          OUTPUT_NAME="${{ inputs.output_name }}"
-          ZIP_SIZE=${{ env.ZIP_SIZE }}
-          MAX_ARTIFACT=2000000000  # ~2GB GitHub limit
-          
-          mkdir -p upload-staging
-          
-          if [ "$ZIP_SIZE" -gt "$MAX_ARTIFACT" ]; then
-            echo "⚠️ فایل زیپ بزرگتر از حد مجاز است!"
+          # Verify download
+          if [ ! -f "download-temp/$OUTPUT_NAME" ]; then
+            echo "❌ خطا: فایل دانلود نشد!"
             exit 1
           fi
-          
-          # Check if we should split into multiple artifacts (for easier download)
-          CHUNK_SIZE=94371840  # 90MB
-          
-          if [ "$ZIP_SIZE" -gt "$CHUNK_SIZE" ]; then
-            echo "📦 تقسیم زیپ به چند آرتیفکت..."
-            cd upload-staging
-            split -b 90M -d --additional-suffix=.zip.part "../${OUTPUT_NAME}_archive.zip" "${OUTPUT_NAME}_part_"
-            ls -lh
-            echo "MULTI_ARTIFACT=true" >> $GITHUB_ENV
+
+          FILE_SIZE=$(stat -c%s "download-temp/$OUTPUT_NAME")
+          echo "✅ دانلود کامل شد. حجم: $FILE_SIZE بایت"
+          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+
+      - name: ✂️ تقسیم و فشرده‌سازی فایل (در صورت نیاز)
+        run: |
+          SPLIT_ENABLED="${{ github.event.inputs.split_enabled }}"
+          FILE_PATH="download-temp/${{ env.OUTPUT_NAME }}"
+          FILE_SIZE=${{ env.FILE_SIZE }}
+          THRESHOLD=$((90 * 1024 * 1024))  # 90MB
+
+          echo "=== بررسی نیاز به تقسیم ==="
+          echo "حجم فایل: $FILE_SIZE بایت"
+          echo "آستانه: $THRESHOLD بایت"
+          echo "تقسیم فعال: $SPLIT_ENABLED"
+
+          if [ "$SPLIT_ENABLED" = "true" ] && [ "$FILE_SIZE" -gt "$THRESHOLD" ]; then
+            echo "فایل بزرگتر از 90MB است. شروع تقسیم..."
+
+            ORIGINAL_NAME="${{ env.OUTPUT_NAME }}"
+            SPLIT_DIR="download-temp/split_temp"
+            mkdir -p "$SPLIT_DIR"
+
+            # Split file into 90MB chunks
+            split -b 90M -d --additional-suffix=.part "$FILE_PATH" "$SPLIT_DIR/${ORIGINAL_NAME}."
+
+            echo "قطعات ایجاد شده:"
+            ls -lh "$SPLIT_DIR/"
+
+            # Create ZIP containing all parts
+            ZIP_NAME="${ORIGINAL_NAME}.split.zip"
+            cd "$SPLIT_DIR"
+            zip -0 "../$ZIP_NAME" *
+            cd ../..
+
+            echo "فایل ZIP ایجاد شد: $ZIP_NAME"
+            ls -lh "download-temp/$ZIP_NAME"
+
+            # Remove original file and split temp
+            rm -f "$FILE_PATH"
+            rm -rf "$SPLIT_DIR"
+
+            echo "FINAL_FILE=$ZIP_NAME" >> $GITHUB_ENV
+            echo "WAS_SPLIT=true" >> $GITHUB_ENV
           else
-            cp "${OUTPUT_NAME}_archive.zip" upload-staging/
-            echo "MULTI_ARTIFACT=false" >> $GITHUB_ENV
+            echo "نیازی به تقسیم نیست."
+            echo "FINAL_FILE=${{ env.OUTPUT_NAME }}" >> $GITHUB_ENV
+            echo "WAS_SPLIT=false" >> $GITHUB_ENV
           fi
 
-      # ───────── مرحله ۷: آپلود آرتیفکت (تکی) ─────────
-      - name: Upload single artifact
-        if: env.MULTI_ARTIFACT == 'false'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.output_name }}
-          path: upload-staging/
-          retention-days: 2
-          compression-level: 0
-
-      # ───────── مرحله ۷ (جایگزین): آپلود آرتیفکت‌های چندتایی ─────────
-      - name: Upload split artifacts
-        if: env.MULTI_ARTIFACT == 'true'
+      - name: 📊 نمایش اطلاعات فایل نهایی
         run: |
-          cd upload-staging
-          PART_NUM=0
-          for part in *; do
-            PART_NUM=$((PART_NUM + 1))
-            echo "Uploading part $PART_NUM: $part"
-          done
-          echo "TOTAL_PARTS=$PART_NUM" >> $GITHUB_ENV
+          echo "=== فایل‌های موجود در download-temp ==="
+          ls -lhR download-temp/
+          echo ""
+          echo "فایل نهایی: ${{ env.FINAL_FILE }}"
+          echo "تقسیم شده: ${{ env.WAS_SPLIT }}"
 
-      - name: Upload artifact parts
-        if: env.MULTI_ARTIFACT == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.output_name }}_all_parts
-          path: upload-staging/
-          retention-days: 2
-          compression-level: 0
-
-      # ───────── مرحله ۸: کامیت فایل‌ها در مخزن (اختیاری برای فایل‌های کوچک) ─────────
-      - name: Commit files to repo
-        if: env.FILE_SIZE < 50000000
+      - name: 📤 آپلود به مخزن (Commit & Push)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Only commit if files are small enough
-          if [ -d "download-temp" ]; then
-            git add download-temp/
-            git commit -m "📥 Auto-download: ${{ inputs.output_name }} [$(date -u '+%Y-%m-%d %H:%M UTC')]" || echo "Nothing to commit"
-            git push || echo "Push failed, files available as artifacts"
+
+          # Add all files in download-temp
+          git add download-temp/ -f
+
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "تغییری برای commit وجود ندارد."
+          else
+            TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+            git commit -m "📥 دانلود فایل: ${{ env.FINAL_FILE }} - $TIMESTAMP"
+
+            # Push with retry
+            for i in 1 2 3; do
+              echo "تلاش $i برای push..."
+              if git push origin main; then
+                echo "✅ Push موفق بود!"
+                break
+              else
+                echo "⚠️ Push ناموفق. تلاش مجدد..."
+                git pull --rebase origin main
+                sleep 5
+              fi
+            done
           fi
 
-      # ───────── مرحله ۹: پاکسازی ─────────
-      - name: Cleanup
-        if: always()
+      - name: 🔗 نمایش لینک دانلود
         run: |
-          echo "🧹 پاکسازی فایل‌های موقت..."
-          rm -rf download-temp/*.part 2>/dev/null || true
-          rm -f *.zip 2>/dev/null || true
-          echo "✅ تمام!"
+          REPO="${{ github.repository }}"
+          FILE="${{ env.FINAL_FILE }}"
 
-      # ───────── مرحله ۱۰: خلاصه ─────────
-      - name: Summary
-        run: |
-          echo "## 📊 خلاصه دانلود" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| آیتم | مقدار |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔗 لینک | \`${{ inputs.file_url }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📁 نام فایل | \`${{ inputs.output_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📏 حجم اصلی | ${{ env.FILE_SIZE }} bytes |" >> $GITHUB_STEP_SUMMARY
-          echo "| ✂️ تقسیم شده | ${{ env.IS_SPLIT }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📦 چند آرتیفکت | ${{ env.MULTI_ARTIFACT }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⏰ نگهداری | ۲ روز |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ فایل‌ها به عنوان Artifact آپلود شدند و تا ۲ روز قابل دانلود هستند." >> $GITHUB_STEP_SUMMARY
+          echo "============================================"
+          echo "✅ عملیات با موفقیت انجام شد!"
+          echo "============================================"
+          echo ""
+          echo "📥 لینک دانلود مستقیم (Raw):"
+          echo "https://raw.githubusercontent.com/${REPO}/main/download-temp/${FILE}"
+          echo ""
+          echo "📥 لینک CodeLoad:"
+          echo "https://codeload.github.com/${REPO}/raw/main/download-temp/${FILE}"
+          echo ""
+          echo "📁 پوشه دانلودها:"
+          echo "https://github.com/${REPO}/tree/main/download-temp"
+          echo "============================================"
