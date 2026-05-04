@@ -1,4 +1,4 @@
-name: File Downloader
+name: Download File
 
 on:
   workflow_dispatch:
@@ -7,105 +7,235 @@ on:
         description: 'لینک مستقیم فایل'
         required: true
         type: string
-      file_name:
-        description: 'نام فایل خروجی (اختیاری)'
+      output_name:
+        description: 'نام فایل خروجی'
         required: false
+        default: 'downloaded-file'
         type: string
-        default: ''
 
-permissions:
-  contents: write
+# Cancel any in-progress runs of the same workflow
+concurrency:
+  group: download-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  download:
+  download-and-upload:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: 📥 Checkout repository
+      # ───────── مرحله ۱: چک‌اوت مخزن ─────────
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🔧 Install tools
+      # ───────── مرحله ۲: نصب ابزارها ─────────
+      - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2 zip
 
-      - name: 📥 Download file
+      # ───────── مرحله ۳: ساخت پوشه و دانلود فایل ─────────
+      - name: Download file
         run: |
-          FILE_URL="${{ github.event.inputs.file_url }}"
-          FILE_NAME="${{ github.event.inputs.file_name }}"
-          
-          # Create downloads folder
-          mkdir -p downloads
-          
-          # Download with aria2
-          cd downloads
-          
-          if [ -n "$FILE_NAME" ] && [ "$FILE_NAME" != "" ]; then
-            aria2c -x 16 -s 16 --max-tries=5 --timeout=60 "$FILE_URL" --out="$FILE_NAME"
+          mkdir -p download-temp
+          cd download-temp
+
+          echo "🔗 لینک: ${{ inputs.file_url }}"
+          echo "📁 نام خروجی: ${{ inputs.output_name }}"
+
+          # Download with aria2 (fast, multi-connection)
+          aria2c \
+            --max-connection-per-server=16 \
+            --split=16 \
+            --min-split-size=1M \
+            --max-tries=5 \
+            --retry-wait=3 \
+            --timeout=120 \
+            --file-allocation=none \
+            --console-log-level=notice \
+            --summary-interval=10 \
+            --out="${{ inputs.output_name }}" \
+            "${{ inputs.file_url }}" || {
+              echo "❌ aria2 failed, trying wget..."
+              wget --no-check-certificate \
+                   --tries=3 \
+                   --timeout=120 \
+                   -O "${{ inputs.output_name }}" \
+                   "${{ inputs.file_url }}"
+            }
+
+          # Show file info
+          echo ""
+          echo "📊 اطلاعات فایل دانلود شده:"
+          ls -lh
+          FILE_SIZE=$(stat -c%s "${{ inputs.output_name }}" 2>/dev/null || echo "0")
+          echo "📏 حجم: $FILE_SIZE bytes"
+          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+
+      # ───────── مرحله ۴: تقسیم فایل بزرگ ─────────
+      - name: Split file if needed
+        run: |
+          cd download-temp
+          FILE="${{ inputs.output_name }}"
+          FILE_SIZE=${{ env.FILE_SIZE }}
+          MAX_SIZE=94371840  # 90MB in bytes
+
+          echo "📏 حجم فایل: $FILE_SIZE bytes"
+          echo "📏 حداکثر مجاز: $MAX_SIZE bytes"
+
+          if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "📦 فایل بزرگتر از 90MB است. در حال تقسیم..."
+            
+            # Split into 90MB chunks
+            split -b 90M -d --additional-suffix=.part "$FILE" "${FILE}_"
+            
+            # Remove original to save space
+            rm "$FILE"
+            
+            echo "✅ تقسیم انجام شد:"
+            ls -lh *.part
+            
+            # Create a reassembly script
+            cat > reassemble.sh << 'SCRIPT'
+          #!/bin/bash
+          # Script to reassemble split files
+          OUTPUT_FILE="${1:-reassembled_file}"
+          echo "🔧 Reassembling parts into: $OUTPUT_FILE"
+          cat *.part > "$OUTPUT_FILE"
+          echo "✅ Done! File: $OUTPUT_FILE ($(stat -c%s "$OUTPUT_FILE") bytes)"
+          SCRIPT
+            chmod +x reassemble.sh
+            
+            # Create a reassembly batch file for Windows
+            cat > reassemble.bat << 'BATCH'
+          @echo off
+          echo Reassembling parts...
+          copy /b *.part reassembled_file
+          echo Done!
+          pause
+          BATCH
+            
+            echo "IS_SPLIT=true" >> $GITHUB_ENV
           else
-            aria2c -x 16 -s 16 --max-tries=5 --timeout=60 "$FILE_URL"
+            echo "✅ فایل نیازی به تقسیم ندارد."
+            echo "IS_SPLIT=false" >> $GITHUB_ENV
           fi
-          
+
+      # ───────── مرحله ۵: ساخت فایل زیپ ─────────
+      - name: Create zip archive
+        run: |
+          cd download-temp
+          OUTPUT_NAME="${{ inputs.output_name }}"
+
+          if [ "${{ env.IS_SPLIT }}" = "true" ]; then
+            echo "📦 زیپ کردن قطعات..."
+            zip -0 "../${OUTPUT_NAME}_archive.zip" *.part reassemble.sh reassemble.bat
+          else
+            echo "📦 زیپ کردن فایل..."
+            zip -0 "../${OUTPUT_NAME}_archive.zip" "$OUTPUT_NAME"
+          fi
+
           cd ..
+          ls -lh "${OUTPUT_NAME}_archive.zip"
           
-          # Get downloaded filename
-          DOWNLOADED_FILE=$(ls -1 downloads/ | head -1)
-          echo "DOWNLOADED_FILE=$DOWNLOADED_FILE" >> $GITHUB_ENV
-          
-          FILE_SIZE=$(stat -c%s "downloads/$DOWNLOADED_FILE")
-          FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
-          echo "FILE_SIZE_MB=$FILE_SIZE_MB" >> $GITHUB_ENV
+          ZIP_SIZE=$(stat -c%s "${OUTPUT_NAME}_archive.zip" 2>/dev/null || echo "0")
+          echo "ZIP_SIZE=$ZIP_SIZE" >> $GITHUB_ENV
+          echo "📊 حجم زیپ: $ZIP_SIZE bytes"
 
-      - name: ✂️ Split large files (over 90MB)
+      # ───────── مرحله ۶: بررسی حجم و تقسیم زیپ ─────────
+      - name: Handle large zip
         run: |
-          FILE="downloads/${{ env.DOWNLOADED_FILE }}"
-          SIZE=$(stat -c%s "$FILE")
-          LIMIT=$((90 * 1024 * 1024))
+          OUTPUT_NAME="${{ inputs.output_name }}"
+          ZIP_SIZE=${{ env.ZIP_SIZE }}
+          MAX_ARTIFACT=2000000000  # ~2GB GitHub limit
           
-          if [ $SIZE -gt $LIMIT ]; then
-            echo "File is ${FILE_SIZE_MB}MB, splitting into 90MB parts..."
-            
-            # Split into 90MB parts
-            cd downloads
-            split -b 90m -d "${{ env.DOWNLOADED_FILE }}" "part_" --additional-suffix=".part"
-            rm "${{ env.DOWNLOADED_FILE }}"
-            
-            # Create ZIP archive of all parts
-            zip -r "${{ env.DOWNLOADED_FILE }}.zip" *.part
-            rm *.part
-            
-            cd ..
-            echo "FINAL_FILE=${{ env.DOWNLOADED_FILE }}.zip" >> $GITHUB_ENV
-            echo "SPLIT=true" >> $GITHUB_ENV
+          mkdir -p upload-staging
+          
+          if [ "$ZIP_SIZE" -gt "$MAX_ARTIFACT" ]; then
+            echo "⚠️ فایل زیپ بزرگتر از حد مجاز است!"
+            exit 1
+          fi
+          
+          # Check if we should split into multiple artifacts (for easier download)
+          CHUNK_SIZE=94371840  # 90MB
+          
+          if [ "$ZIP_SIZE" -gt "$CHUNK_SIZE" ]; then
+            echo "📦 تقسیم زیپ به چند آرتیفکت..."
+            cd upload-staging
+            split -b 90M -d --additional-suffix=.zip.part "../${OUTPUT_NAME}_archive.zip" "${OUTPUT_NAME}_part_"
+            ls -lh
+            echo "MULTI_ARTIFACT=true" >> $GITHUB_ENV
           else
-            echo "FINAL_FILE=${{ env.DOWNLOADED_FILE }}" >> $GITHUB_ENV
-            echo "SPLIT=false" >> $GITHUB_ENV
+            cp "${OUTPUT_NAME}_archive.zip" upload-staging/
+            echo "MULTI_ARTIFACT=false" >> $GITHUB_ENV
           fi
 
-      - name: 📤 Commit and push to repository
+      # ───────── مرحله ۷: آپلود آرتیفکت (تکی) ─────────
+      - name: Upload single artifact
+        if: env.MULTI_ARTIFACT == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.output_name }}
+          path: upload-staging/
+          retention-days: 2
+          compression-level: 0
+
+      # ───────── مرحله ۷ (جایگزین): آپلود آرتیفکت‌های چندتایی ─────────
+      - name: Upload split artifacts
+        if: env.MULTI_ARTIFACT == 'true'
+        run: |
+          cd upload-staging
+          PART_NUM=0
+          for part in *; do
+            PART_NUM=$((PART_NUM + 1))
+            echo "Uploading part $PART_NUM: $part"
+          done
+          echo "TOTAL_PARTS=$PART_NUM" >> $GITHUB_ENV
+
+      - name: Upload artifact parts
+        if: env.MULTI_ARTIFACT == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.output_name }}_all_parts
+          path: upload-staging/
+          retention-days: 2
+          compression-level: 0
+
+      # ───────── مرحله ۸: کامیت فایل‌ها در مخزن (اختیاری برای فایل‌های کوچک) ─────────
+      - name: Commit files to repo
+        if: env.FILE_SIZE < 50000000
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add and commit
-          git add downloads/
-          git commit -m "Add downloaded file: ${{ env.FINAL_FILE }}" || echo "Nothing to commit"
-          git push
-          
-          # Get the raw URL
-          RAW_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/downloads/${{ env.FINAL_FILE }}"
-          echo "RAW_URL=$RAW_URL" >> $GITHUB_ENV
+          # Only commit if files are small enough
+          if [ -d "download-temp" ]; then
+            git add download-temp/
+            git commit -m "📥 Auto-download: ${{ inputs.output_name }} [$(date -u '+%Y-%m-%d %H:%M UTC')]" || echo "Nothing to commit"
+            git push || echo "Push failed, files available as artifacts"
+          fi
 
-      - name: 📋 Job summary
+      # ───────── مرحله ۹: پاکسازی ─────────
+      - name: Cleanup
+        if: always()
         run: |
-          echo "## ✅ Download Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 پاکسازی فایل‌های موقت..."
+          rm -rf download-temp/*.part 2>/dev/null || true
+          rm -f *.zip 2>/dev/null || true
+          echo "✅ تمام!"
+
+      # ───────── مرحله ۱۰: خلاصه ─────────
+      - name: Summary
+        run: |
+          echo "## 📊 خلاصه دانلود" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| آیتم | مقدار |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **File** | \`${{ env.FINAL_FILE }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Size** | ${{ env.FILE_SIZE_MB }} MB |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Split** | ${{ env.SPLIT }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Raw URL** | [Download](${{ env.RAW_URL }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔗 لینک | \`${{ inputs.file_url }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📁 نام فایل | \`${{ inputs.output_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📏 حجم اصلی | ${{ env.FILE_SIZE }} bytes |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✂️ تقسیم شده | ${{ env.IS_SPLIT }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 چند آرتیفکت | ${{ env.MULTI_ARTIFACT }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏰ نگهداری | ۲ روز |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ فایل‌ها به عنوان Artifact آپلود شدند و تا ۲ روز قابل دانلود هستند." >> $GITHUB_STEP_SUMMARY
