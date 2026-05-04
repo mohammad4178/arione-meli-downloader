@@ -4,19 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       file_url:
-        description: 'Direct download URL'
+        description: 'لینک مستقیم فایل'
         required: true
         type: string
       file_name:
-        description: 'Output filename (optional)'
+        description: 'نام فایل خروجی (اختیاری)'
         required: false
         type: string
         default: ''
       split_enabled:
-        description: 'Split files larger than 90MB'
+        description: 'تقسیم فایل‌های بزرگتر از 90MB'
         required: false
         type: string
         default: 'true'
+
+permissions:
+  contents: write
 
 jobs:
   download:
@@ -24,201 +27,152 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # ───────── Step 1: Setup ─────────
-      - name: 🔧 Setup environment
+      - name: 📥 دریافت کدهای مخزن
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔧 نصب ابزارها
         run: |
-          echo "========================================="
-          echo "  GitHub File Downloader"
-          echo "========================================="
-          echo ""
-          echo "📥 URL: ${{ github.event.inputs.file_url }}"
-          echo "📄 Filename: ${{ github.event.inputs.file_name || 'auto-detect' }}"
-          echo "✂️ Split: ${{ github.event.inputs.split_enabled }}"
-          echo ""
-          
-          # Install aria2
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2 zip
 
-          # Create working directory
-          mkdir -p ./download_temp
-          mkdir -p ./output
-
-      # ───────── Step 2: Download ─────────
-      - name: 📥 Download file
+      - name: 📥 دانلود فایل
         run: |
           FILE_URL="${{ github.event.inputs.file_url }}"
           FILE_NAME="${{ github.event.inputs.file_name }}"
           
-          echo "🚀 Starting download..."
-          echo ""
+          # ایجاد پوشه دانلود
+          mkdir -p downloads
           
-          # Build aria2 command
-          ARIA2_ARGS=(
-            --max-connection-per-server=16
-            --split=16
-            --min-split-size=1M
-            --max-tries=5
-            --retry-wait=3
-            --timeout=120
-            --connect-timeout=30
-            --allow-overwrite=true
-            --auto-file-renaming=false
-            --console-log-level=notice
-            --summary-interval=5
-            --dir=./download_temp
-          )
-          
-          # Add filename if specified
+          # ساخت نام فایل
           if [ -n "$FILE_NAME" ] && [ "$FILE_NAME" != "" ]; then
-            ARIA2_ARGS+=(--out="$FILE_NAME")
+            OUTPUT_NAME="$FILE_NAME"
+          else
+            OUTPUT_NAME=$(basename "$FILE_URL" | sed 's/?.*//')
           fi
           
-          # Download
-          aria2c "${ARIA2_ARGS[@]}" "$FILE_URL"
+          # دانلود با aria2
+          aria2c \
+            --max-connection-per-server=16 \
+            --split=16 \
+            --min-split-size=1M \
+            --max-tries=5 \
+            --retry-wait=3 \
+            --timeout=120 \
+            --dir=./downloads \
+            --out="$OUTPUT_NAME" \
+            "$FILE_URL"
           
-          echo ""
-          echo "✅ Download completed!"
-          echo ""
-          
-          # Show downloaded file info
-          echo "📁 Downloaded files:"
-          ls -lh ./download_temp/
-          
-          # Get the downloaded filename
-          DOWNLOADED_FILE=$(ls -1 ./download_temp/ | head -1)
-          echo "DOWNLOADED_FILE=$DOWNLOADED_FILE" >> $GITHUB_ENV
-          
-          FILE_SIZE=$(stat -c%s "./download_temp/$DOWNLOADED_FILE")
-          FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
+          echo "DOWNLOADED_FILE=$OUTPUT_NAME" >> $GITHUB_ENV
+          FILE_SIZE=$(stat -c%s "./downloads/$OUTPUT_NAME")
           echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_ENV
-          echo "FILE_SIZE_MB=$FILE_SIZE_MB" >> $GITHUB_ENV
-          
-          echo ""
-          echo "📊 File: $DOWNLOADED_FILE"
-          echo "📊 Size: ${FILE_SIZE_MB} MB"
 
-      # ───────── Step 3: Process ─────────
-      - name: ✂️ Process and package
+      - name: ✂️ تقسیم فایل بزرگ (در صورت نیاز)
         run: |
-          DOWNLOADED_FILE="${{ env.DOWNLOADED_FILE }}"
+          FILE_NAME="${{ env.DOWNLOADED_FILE }}"
           FILE_SIZE="${{ env.FILE_SIZE }}"
-          FILE_SIZE_MB="${{ env.FILE_SIZE_MB }}"
           SPLIT_ENABLED="${{ github.event.inputs.split_enabled }}"
-          
-          SPLIT_SIZE=90  # MB
+          SPLIT_SIZE=90
           SPLIT_BYTES=$((SPLIT_SIZE * 1024 * 1024))
           
-          echo "📦 Processing file..."
-          echo ""
-          
-          # Check if file needs splitting
           if [ "$SPLIT_ENABLED" = "true" ] && [ "$FILE_SIZE" -gt "$SPLIT_BYTES" ]; then
-            echo "✂️ File is ${FILE_SIZE_MB}MB, splitting into ${SPLIT_SIZE}MB chunks..."
-            echo ""
+            echo "📦 فایل بزرگ است، در حال تقسیم..."
             
-            # Create split directory
-            mkdir -p ./output/parts
+            # انتقال فایل به پوشه جدا برای تقسیم
+            mkdir -p downloads_split
+            mv "./downloads/$FILE_NAME" "./downloads_split/"
             
-            # Split the file
-            split -b ${SPLIT_SIZE}m -d --additional-suffix=.part \
-              "./download_temp/$DOWNLOADED_FILE" \
-              "./output/parts/${DOWNLOADED_FILE}."
+            # تقسیم فایل
+            cd downloads_split
+            split -b ${SPLIT_SIZE}m -d --additional-suffix=.part "$FILE_NAME" "${FILE_NAME}."
+            rm "$FILE_NAME"
+            cd ..
             
-            echo "📁 Split parts:"
-            ls -lh ./output/parts/
+            # انتقال قطعات به downloads
+            mv downloads_split/* ./downloads/
+            rm -rf downloads_split
             
-            # Count parts
-            PART_COUNT=$(ls -1 ./output/parts/ | wc -l)
-            echo ""
-            echo "📊 Total parts: $PART_COUNT"
-            
-            # Create a manifest file
-            cat > ./output/parts/MANIFEST.txt << EOF
-          ========================================
-          GitHub File Downloader - Manifest
-          ========================================
-          Original file: $DOWNLOADED_FILE
-          Original size: ${FILE_SIZE_MB} MB
-          Parts: $PART_COUNT
-          Split size: ${SPLIT_SIZE} MB
-          Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-          
-          To reassemble on Linux/Mac:
-            cat ${DOWNLOADED_FILE}.*.part > ${DOWNLOADED_FILE}
-          
-          To reassemble on Windows (CMD):
-            copy /b ${DOWNLOADED_FILE}.*.part ${DOWNLOADED_FILE}
-          
-          To reassemble on Windows (PowerShell):
-            Get-Content ${DOWNLOADED_FILE}.*.part -Raw | Set-Content ${DOWNLOADED_FILE} -NoNewline
-          ========================================
-          EOF
-            
-            echo "ARTIFACT_PATH=./output/parts" >> $GITHUB_ENV
-            echo "ARTIFACT_NAME=download-${DOWNLOADED_FILE}-parts" >> $GITHUB_ENV
-            echo "IS_SPLIT=true" >> $GITHUB_ENV
-            
-          else
-            echo "📦 File is ${FILE_SIZE_MB}MB, no splitting needed."
-            
-            # Move file to output
-            cp "./download_temp/$DOWNLOADED_FILE" "./output/$DOWNLOADED_FILE"
-            
-            echo "ARTIFACT_PATH=./output" >> $GITHUB_ENV
-            echo "ARTIFACT_NAME=download-${DOWNLOADED_FILE}" >> $GITHUB_ENV
-            echo "IS_SPLIT=false" >> $GITHUB_ENV
-          fi
-          
-          echo ""
-          echo "✅ Processing completed!"
+            # ساخت فایل راهنما
+            cat > ./downloads/README_${FILE_NAME}.txt << EOF
+🔧 راهنمای ترکیب فایل: $FILE_NAME
 
-      # ───────── Step 4: Verify ─────────
-      - name: 🔍 Verify output
-        run: |
-          echo "📁 Output directory:"
-          echo ""
-          
-          if [ "${{ env.IS_SPLIT }}" = "true" ]; then
-            ls -lh ./output/parts/
-            echo ""
-            TOTAL_SIZE=$(du -sh ./output/parts/ | cut -f1)
-            echo "📊 Total output size: $TOTAL_SIZE"
+این فایل به قطعات ${SPLIT_SIZE}MB تقسیم شده است.
+
+برای ترکیب در ویندوز (CMD):
+    copy /b ${FILE_NAME}.*.part ${FILE_NAME}
+
+برای ترکیب در لینوکس/Mac:
+    cat ${FILE_NAME}.*.part > ${FILE_NAME}
+
+فایل اصلی: $FILE_NAME
+EOF
+            
+            echo "SPLIT=true" >> $GITHUB_ENV
           else
-            ls -lh ./output/
-            echo ""
-            TOTAL_SIZE=$(du -sh ./output/ | cut -f1)
-            echo "📊 Total output size: $TOTAL_SIZE"
+            echo "SPLIT=false" >> $GITHUB_ENV
           fi
 
-      # ───────── Step 5: Upload Artifact ─────────
-      - name: 📤 Upload artifact
-        uses: actions/upload-artifact@v4.2.0
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: ${{ env.ARTIFACT_PATH }}
-          retention-days: 7
-          compression-level: 1
-          if-no-files-found: error
-
-      # ───────── Step 6: Summary ─────────
-      - name: 📋 Job summary
+      - name: 📤 ذخیره در مخزن
         run: |
-          echo "## 📥 Download Complete!" >> $GITHUB_STEP_SUMMARY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # اضافه کردن فایل‌ها
+          git add downloads/
+          
+          # اگر فایلی برای کامیت وجود دارد
+          if ! git diff --cached --quiet; then
+            git commit -m "✅ افزودن فایل دانلود شده: ${{ env.DOWNLOADED_FILE }}"
+            git push origin main
+            echo "✅ فایل در مخزن ذخیره شد"
+          else
+            echo "⚠️ هیچ فایل جدیدی برای ذخیره وجود ندارد"
+          fi
+
+      - name: 📋 نمایش لینک مستقیم
+        run: |
+          REPO_NAME="${{ github.repository }}"
+          FILE_NAME="${{ env.DOWNLOADED_FILE }}"
+          
+          # لینک مستقیم خام
+          RAW_URL="https://raw.githubusercontent.com/${REPO_NAME}/main/downloads/${FILE_NAME}"
+          
+          echo ""
+          echo "========================================="
+          echo "✅ دانلود کامل شد!"
+          echo "========================================="
+          echo ""
+          echo "🔗 لینک مستقیم دانلود:"
+          echo "$RAW_URL"
+          echo ""
+          echo "========================================="
+          
+          # ذخیره در فایل برای خروجی
+          echo "RAW_URL=$RAW_URL" >> $GITHUB_ENV
+
+      - name: 📝 ایجاد فایل index جدید (به روز رسانی لینک)
+        run: |
+          # خواندن فایل index.html موجود
+          if [ -f "index.html" ]; then
+            # ایجاد یک فایل JSON با لینک آخرین دانلود
+            echo "{
+  \"last_download\": {
+    \"file\": \"${{ env.DOWNLOADED_FILE }}\",
+    \"url\": \"${{ env.RAW_URL }}\",
+    \"date\": \"$(date -u '+%Y-%m-%d %H:%M:%S UTC')\"
+  }
+}" > downloads/last_download.json
+          fi
+
+      - name: 📊 گزارش نهایی
+        run: |
+          echo "## ✅ دانلود با موفقیت انجام شد!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| مورد | مقدار |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **File** | \`${{ env.DOWNLOADED_FILE }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Size** | ${{ env.FILE_SIZE_MB }} MB |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Split** | ${{ env.IS_SPLIT }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Artifact** | \`${{ env.ARTIFACT_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Retention** | 7 days |" >> $GITHUB_STEP_SUMMARY
+          echo "| **نام فایل** | \`${{ env.DOWNLOADED_FILE }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **لینک مستقیم** | [دانلود](${{ env.RAW_URL }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **تقسیم شده** | ${{ env.SPLIT }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Artifact uploaded successfully. Download it from the Artifacts section above." >> $GITHUB_STEP_SUMMARY
-
-      # ───────── Cleanup ─────────
-      - name: 🧹 Cleanup
-        if: always()
-        run: |
-          rm -rf ./download_temp
-          echo "🧹 Temporary files cleaned up."
+          echo "فایل در پوشه \`downloads/\` مخزن ذخیره شده است." >> $GITHUB_STEP_SUMMARY
